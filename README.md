@@ -6,18 +6,43 @@ A minimal Kanban task board powered by Google Sheets — no backend needed.
 
 **[Live Demo](https://lugassawan.github.io/taskboard/)**
 
-<!-- Screenshot: replace the URL below with an actual screenshot of the app -->
-<!-- ![Taskboard screenshot](screenshot.png) -->
+![Taskboard — Kanban board with tasks](assets/hero-board.png)
 
 ## Features
 
-- **Kanban columns** — Backlog, On Going, and Done
-- **Google Sheets backend** — your own spreadsheet is the database
-- **Inline actions** — move tasks between columns, edit, and delete without leaving the board
-- **Due date tracking** — overdue tasks are highlighted automatically
-- **Dark theme** — easy on the eyes with a grid-pattern background
+### Kanban Board
+
+Organize tasks across three columns — **Backlog**, **On Going**, and **Done**. Move tasks between columns with a single click.
+
+![Board with tasks](assets/04-board-with-tasks.png)
+
+### Create & Edit Tasks
+
+Add tasks with a title, references/notes, due date, and status. Edit any task inline.
+
+| New Task | Edit Task |
+|----------|-----------|
+| ![New task modal](assets/03-new-task-modal.png) | ![Edit task modal](assets/05-edit-task-modal.png) |
+
+### Due Date Tracking
+
+Overdue tasks are highlighted in orange with a warning icon. Upcoming dates display normally.
+
+### Setup Wizard
+
+A guided 3-step setup connects the app to your own Google Sheet. The built-in Apps Script code is available with one click.
+
+| Setup Screen | Apps Script Code |
+|--------------|------------------|
+| ![Setup screen](assets/01-setup-screen.png) | ![Script modal](assets/02-script-modal.png) |
+
+### Other Highlights
+
+- **Google Sheets backend** — your own spreadsheet is the database, no server required
+- **Dark theme** — grid-pattern background, designed for long sessions
 - **Responsive** — works on desktop and mobile
-- **Privacy-first** — no server, no analytics; data stays in your Google Sheet
+- **Privacy-first** — no analytics, no tracking; data stays in your Google Sheet
+- **Zero dependencies** — pure vanilla JavaScript
 
 ## Getting Started
 
@@ -29,18 +54,21 @@ That's it — your tasks will sync with the spreadsheet.
 
 ## Tech Stack
 
-- **Vanilla JavaScript** — zero dependencies
-- **IBM Plex Mono** & **Instrument Serif** — from Google Fonts
-- **Google Sheets + Apps Script** — serverless data layer
-- **GitHub Pages** — static hosting
+| Layer | Technology |
+|-------|------------|
+| Frontend | Vanilla JavaScript, HTML, CSS |
+| Typography | IBM Plex Mono, Instrument Serif (Google Fonts) |
+| Data | Google Sheets + Apps Script |
+| Hosting | GitHub Pages |
 
 ## Project Structure
 
 ```
 taskboard/
-├── index.html      # HTML shell
-├── style.css       # All styles
-├── app.js          # Application logic
+├── index.html      # HTML shell with SEO meta tags
+├── style.css       # All styles (dark theme, responsive)
+├── app.js          # Application logic (CRUD, rendering, API)
+├── assets/         # Screenshots for README
 ├── robots.txt      # Crawler directives
 ├── sitemap.xml     # Sitemap for search engines
 ├── LICENSE          # MIT License

@@ -231,7 +231,8 @@ function makeCard(task) {
   div.className = 'card';
   div.setAttribute('data-id', task.id);
 
-  const isOverdue = task.due_date && new Date(task.due_date + 'T00:00:00') < new Date() && task.status !== 'Done';
+  const dueLocal = parseLocalDate(task.due_date);
+  const isOverdue = dueLocal && dueLocal < new Date() && task.status !== 'Done';
   const dateStr = task.due_date ? formatDate(task.due_date) : '';
 
   const statuses = ['Backlog', 'On Going', 'Done'];
@@ -300,9 +301,20 @@ function makeCard(task) {
   return div;
 }
 
+function parseLocalDate(d) {
+  if (!d) return null;
+  const s = String(d);
+  // Bare date "2026-03-15" → local midnight
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s + 'T00:00:00');
+  // Full ISO "2026-03-14T17:00:00.000Z" → parse and extract local date at midnight
+  const parsed = new Date(s);
+  if (isNaN(parsed)) return null;
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+}
+
 function formatDate(d) {
-  if (!d) return '';
-  const date = new Date(d + 'T00:00:00');
+  const date = parseLocalDate(d);
+  if (!date) return '';
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
