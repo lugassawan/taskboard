@@ -73,8 +73,8 @@
 </div>
 
 <!-- SCRIPT MODAL -->
-<div class="modal-overlay" id="script-modal" style="display:none;z-index:200;">
-  <div class="modal" style="max-width:640px;">
+<div class="modal-overlay" id="script-modal" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal" style="max-width:640px;" onclick="event.stopPropagation()">
     <button class="modal-close" onclick="document.getElementById('script-modal').style.display='none'">×</button>
     <div class="modal-title">Apps Script Code</div>
     <p style="font-size:11px;color:var(--text2);margin-bottom:16px;line-height:1.7;">

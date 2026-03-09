@@ -486,6 +486,10 @@ header {
   backdrop-filter: blur(4px);
 }
 
+#script-modal {
+  z-index: 150;
+}
+
 .modal {
   background: var(--surface);
   border: 1px solid var(--border2);

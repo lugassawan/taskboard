@@ -130,7 +130,7 @@ function launchApp() {
 
 function saveSetup() {
   const url = document.getElementById('api-url-input').value.trim();
-  if (!url || !url.startsWith('https://script.google.com')) {
+  if (!url || !/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec/.test(url)) {
     showToast('Please enter a valid Apps Script Web App URL', 'error');
     return;
   }
@@ -231,15 +231,10 @@ function makeCard(task) {
   div.className = 'card';
   div.setAttribute('data-id', task.id);
 
-  const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'Done';
+  const isOverdue = task.due_date && new Date(task.due_date + 'T00:00:00') < new Date() && task.status !== 'Done';
   const dateStr = task.due_date ? formatDate(task.due_date) : '';
 
-  // Status move options
   const statuses = ['Backlog', 'On Going', 'Done'];
-  const moveBtns = statuses
-    .filter(s => s !== task.status)
-    .map(s => `<button class="move-btn" onclick="moveTask(event,'${task.id}','${s}')">\u2192 ${s}</button>`)
-    .join('');
 
   // Build card content using DOM methods for safety
   // Actions bar
@@ -311,10 +306,6 @@ function formatDate(d) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function escHtml(str) {
-  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
 // =========================================
 //  TASK ACTIONS
 // =========================================
@@ -383,7 +374,10 @@ function overlayClose(e) {
   if (e.target === document.getElementById('task-modal')) closeModal();
 }
 
+let saving = false;
+
 async function saveTask() {
+  if (saving) return;
   const title = document.getElementById('f-title').value.trim();
   if (!title) { showToast('Title is required', 'error'); return; }
 
@@ -394,34 +388,40 @@ async function saveTask() {
     status: document.getElementById('f-status').value
   };
 
+  const currentEditingId = editingId;
+  saving = true;
   closeModal();
 
-  if (editingId) {
-    const task = tasks.find(t => String(t.id) === String(editingId));
-    if (task) Object.assign(task, data);
-    renderBoard();
-    try {
-      await api({ action: 'update', id: editingId, ...data });
-      showToast('Task updated');
-    } catch (err) {
-      showToast('Update failed: ' + err.message, 'error');
-      fetchTasks();
-    }
-  } else {
-    const tempId = 'temp_' + Date.now();
-    const newTask = { id: tempId, ...data, created_at: new Date().toISOString() };
-    tasks.unshift(newTask);
-    renderBoard();
-    try {
-      const created = await api({ action: 'create', ...data });
-      const idx = tasks.findIndex(t => t.id === tempId);
-      if (idx >= 0) tasks[idx].id = created.id;
-      showToast('Task created');
-    } catch (err) {
-      tasks = tasks.filter(t => t.id !== tempId);
+  try {
+    if (currentEditingId) {
+      const task = tasks.find(t => String(t.id) === String(currentEditingId));
+      if (task) Object.assign(task, data);
       renderBoard();
-      showToast('Create failed: ' + err.message, 'error');
+      try {
+        await api({ action: 'update', id: currentEditingId, ...data });
+        showToast('Task updated');
+      } catch (err) {
+        showToast('Update failed: ' + err.message, 'error');
+        fetchTasks();
+      }
+    } else {
+      const tempId = 'temp_' + Date.now();
+      const newTask = { id: tempId, ...data, created_at: new Date().toISOString() };
+      tasks.unshift(newTask);
+      renderBoard();
+      try {
+        const created = await api({ action: 'create', ...data });
+        const idx = tasks.findIndex(t => t.id === tempId);
+        if (idx >= 0) tasks[idx].id = created.id;
+        showToast('Task created');
+      } catch (err) {
+        tasks = tasks.filter(t => t.id !== tempId);
+        renderBoard();
+        showToast('Create failed: ' + err.message, 'error');
+      }
     }
+  } finally {
+    saving = false;
   }
 }
 
