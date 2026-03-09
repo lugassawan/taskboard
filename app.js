@@ -5,7 +5,7 @@ const APPS_SCRIPT_CODE = `// TASKBOARD — Google Apps Script
 // Paste this in Extensions > Apps Script, then deploy as Web App (Anyone access)
 
 const SHEET_NAME = "Tasks";
-const HEADERS = ["id", "title", "references", "due_date", "status", "created_at"];
+const HEADERS = ["id", "title", "references", "due_date", "status", "created_at", "calendar_added"];
 
 function getSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -64,16 +64,16 @@ function listTasks() {
   if (rows.length <= 1) return [];
   return rows.slice(1).map(r => ({
     id: r[0], title: r[1], references: r[2],
-    due_date: r[3], status: r[4], created_at: r[5]
+    due_date: r[3], status: r[4], created_at: r[5], calendar_added: r[6] === true || r[6] === 'true'
   }));
 }
 
 function createTask(p) {
   const sheet = getSheet();
   const id = Date.now().toString();
-  const row = [id, p.title || '', p.references || '', p.due_date || '', p.status || 'Backlog', new Date().toISOString()];
+  const row = [id, p.title || '', p.references || '', p.due_date || '', p.status || 'Backlog', new Date().toISOString(), p.calendar_added || false];
   sheet.appendRow(row);
-  return { id, title: p.title, references: p.references, due_date: p.due_date, status: p.status };
+  return { id, title: p.title, references: p.references, due_date: p.due_date, status: p.status, calendar_added: p.calendar_added || false };
 }
 
 function updateTask(p) {
@@ -85,6 +85,7 @@ function updateTask(p) {
       if (p.references !== undefined) sheet.getRange(i+1, 3).setValue(p.references);
       if (p.due_date !== undefined) sheet.getRange(i+1, 4).setValue(p.due_date);
       if (p.status !== undefined) sheet.getRange(i+1, 5).setValue(p.status);
+      if (p.calendar_added !== undefined) sheet.getRange(i+1, 7).setValue(p.calendar_added);
       return { ok: true };
     }
   }
@@ -224,12 +225,92 @@ function renderBoard() {
   });
 
   document.getElementById('task-count').textContent = tasks.length + ' task' + (tasks.length !== 1 ? 's' : '');
+
+  // Set up drag/drop on columns
+  setupDragDrop();
+}
+
+// =========================================
+//  DRAG & DROP
+// =========================================
+const COL_STATUS_MAP = { 'col-backlog': 'Backlog', 'col-ongoing': 'On Going', 'col-done': 'Done' };
+
+function setupDragDrop() {
+  document.querySelectorAll('.column').forEach(col => {
+    col.ondragover = function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      col.classList.add('drag-over');
+    };
+    col.ondragenter = function(e) {
+      e.preventDefault();
+      col.classList.add('drag-over');
+    };
+    col.ondragleave = function(e) {
+      if (!col.contains(e.relatedTarget)) {
+        col.classList.remove('drag-over');
+      }
+    };
+    col.ondrop = function(e) {
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      const taskId = e.dataTransfer.getData('text/plain');
+      const newStatus = COL_STATUS_MAP[col.id];
+      if (!taskId || !newStatus) return;
+      const task = tasks.find(t => String(t.id) === taskId);
+      if (!task || task.status === newStatus) return;
+      moveTask(e, taskId, newStatus);
+    };
+  });
+}
+
+// =========================================
+//  ADD TO CALENDAR
+// =========================================
+function addToCalendar(task) {
+  const dueLocal = parseLocalDate(task.due_date);
+  if (!dueLocal) return;
+
+  // Format as YYYYMMDD for Google Calendar
+  const y = dueLocal.getFullYear();
+  const m = String(dueLocal.getMonth() + 1).padStart(2, '0');
+  const d = String(dueLocal.getDate()).padStart(2, '0');
+  const dateStr = y + m + d;
+  // All-day event: dates only (no time component)
+  const nextDay = new Date(dueLocal);
+  nextDay.setDate(nextDay.getDate() + 1);
+  const ny = nextDay.getFullYear();
+  const nm = String(nextDay.getMonth() + 1).padStart(2, '0');
+  const nd = String(nextDay.getDate()).padStart(2, '0');
+  const endStr = ny + nm + nd;
+
+  const title = encodeURIComponent(task.title || 'Taskboard item');
+  const details = encodeURIComponent(task.references || '');
+
+  const url = 'https://calendar.google.com/calendar/r/eventedit'
+    + '?text=' + title
+    + '&dates=' + dateStr + '/' + endStr
+    + '&details=' + details;
+
+  window.open(url, '_blank');
+  showToast('Opening Google Calendar...');
 }
 
 function makeCard(task) {
   const div = document.createElement('div');
   div.className = 'card';
   div.setAttribute('data-id', task.id);
+
+  // Drag & drop
+  div.draggable = true;
+  div.ondragstart = function(e) {
+    e.dataTransfer.setData('text/plain', String(task.id));
+    e.dataTransfer.effectAllowed = 'move';
+    div.classList.add('dragging');
+  };
+  div.ondragend = function() {
+    div.classList.remove('dragging');
+  };
 
   const dueLocal = parseLocalDate(task.due_date);
   const isOverdue = dueLocal && dueLocal < new Date() && task.status !== 'Done';
@@ -278,6 +359,26 @@ function makeCard(task) {
     refSpan.className = 'card-ref-badge';
     refSpan.textContent = 'REF';
     metaDiv.appendChild(refSpan);
+  }
+
+  // Add to calendar button (only if task has a date)
+  if (dueLocal) {
+    const calBtn = document.createElement('button');
+    const isAdded = task.calendar_added;
+    calBtn.className = 'card-cal-btn' + (isAdded ? ' added' : '');
+    calBtn.textContent = isAdded ? '\u2713 In Calendar' : '\u002B Calendar';
+    calBtn.onclick = function(e) {
+      e.stopPropagation();
+      if (task.calendar_added) return;
+      addToCalendar(task);
+      task.calendar_added = true;
+      calBtn.className = 'card-cal-btn added';
+      calBtn.textContent = '\u2713 In Calendar';
+      api({ action: 'update', id: task.id, calendar_added: true }).catch(function(err) {
+        showToast('Failed to save calendar state: ' + err.message, 'error');
+      });
+    };
+    metaDiv.appendChild(calBtn);
   }
 
   div.appendChild(metaDiv);
